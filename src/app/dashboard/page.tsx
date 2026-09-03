@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getMyLeaveBalance, getMyLeaveRequests, getMyLeaveBreakdown } from '@/app/actions/leave-actions';
 import { getPublicHolidaysList, getMyRegionalHolidays } from '@/app/actions/holiday-actions';
-import { getDashboardData, getPendingApprovals as getPendingApprovalsAction } from '@/app/actions/report-actions';
+import { getDashboardData } from '@/app/actions/report-actions';
 import { getPendingApprovals } from '@/app/actions/leave-actions';
 import { getPendingRegionalHolidaysList } from '@/app/actions/holiday-actions';
 import { StatusBadge } from '@/components/status-badge';

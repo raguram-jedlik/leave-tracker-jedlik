@@ -4,6 +4,7 @@
 
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
+import type { JWT } from 'next-auth/jwt';
 import { validateCredentials } from '@/lib/services/employee-service';
 import type { SessionUser } from '@/lib/types';
 
@@ -50,7 +51,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id;
+        token.id = user.id!;
         token.role = user.role;
         token.mustChangePassword = user.mustChangePassword;
       }
@@ -63,6 +64,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         email: token.email as string,
         role: token.role,
         mustChangePassword: token.mustChangePassword,
+        emailVerified: null,
       };
       return session;
     },
