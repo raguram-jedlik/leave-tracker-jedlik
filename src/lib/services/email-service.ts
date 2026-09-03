@@ -65,6 +65,7 @@ async function sendEmailSafe(
 // --- Email Templates ---
 
 function baseTemplate(title: string, content: string): string {
+  const appUrl = getAppUrl();
   return `
     <!DOCTYPE html>
     <html>
@@ -76,8 +77,8 @@ function baseTemplate(title: string, content: string): string {
       <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
         <!-- Header -->
         <div style="background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%); padding: 24px 32px; border-radius: 12px 12px 0 0; text-align: center;">
-          <h1 style="margin: 0; font-family: 'Orbitron', monospace; font-size: 20px; color: #ec1c24; letter-spacing: 2px;">JEDLIK MOTORS</h1>
-          <p style="margin: 4px 0 0; font-size: 12px; color: #a1a1aa; letter-spacing: 1px;">EMPLOYEE LEAVE PORTAL</p>
+          <img src="${appUrl}/jedlik-logo.jpg" alt="Jedlik" style="max-width: 200px; height: auto; display: block; margin: 0 auto;" />
+          <p style="margin: 8px 0 0; font-size: 12px; color: #a1a1aa; letter-spacing: 1px;">EMPLOYEE LEAVE PORTAL</p>
         </div>
 
         <!-- Content -->
@@ -89,7 +90,7 @@ function baseTemplate(title: string, content: string): string {
         <!-- Footer -->
         <div style="background: #fafafa; padding: 16px 32px; border-radius: 0 0 12px 12px; border: 1px solid #e4e4e7; border-top: none; text-align: center;">
           <p style="margin: 0; font-size: 12px; color: #71717a;">
-            This is an automated notification from Jedlik Motors Leave Portal.
+            This is an automated notification from the Employee Leave Portal.
           </p>
         </div>
       </div>
