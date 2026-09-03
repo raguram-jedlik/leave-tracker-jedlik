@@ -1,0 +1,395 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { getMyLeaveBalance, getMyLeaveRequests, getMyLeaveBreakdown } from '@/app/actions/leave-actions';
+import { getPublicHolidaysList, getMyRegionalHolidays } from '@/app/actions/holiday-actions';
+import { getDashboardData, getPendingApprovals as getPendingApprovalsAction } from '@/app/actions/report-actions';
+import { getPendingApprovals } from '@/app/actions/leave-actions';
+import { getPendingRegionalHolidaysList } from '@/app/actions/holiday-actions';
+import { StatusBadge } from '@/components/status-badge';
+import { useSession } from '@/components/session-provider';
+import {
+  CalendarDays,
+  CalendarPlus,
+  Clock,
+  TrendingUp,
+  Users,
+  AlertCircle,
+  ChevronRight,
+  Calendar,
+  X,
+} from 'lucide-react';
+import type { LeaveBalance, LeaveRequest, PublicHoliday, MonthlyBreakdown, RegionalHolidayRequest } from '@/lib/types';
+
+export default function DashboardPage() {
+  const user = useSession();
+  const [balance, setBalance] = useState<LeaveBalance | null>(null);
+  const [requests, setRequests] = useState<LeaveRequest[]>([]);
+  const [holidays, setHolidays] = useState<PublicHoliday[]>([]);
+  const [breakdown, setBreakdown] = useState<MonthlyBreakdown[]>([]);
+  const [showBreakdown, setShowBreakdown] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Admin/Approver specific
+  const [pendingLeaves, setPendingLeaves] = useState<LeaveRequest[]>([]);
+  const [pendingRegional, setPendingRegional] = useState<RegionalHolidayRequest[]>([]);
+  const [dashData, setDashData] = useState<{
+    totalEmployees: number;
+    pendingLeaveRequests: number;
+    pendingRegionalHolidays: number;
+    employeesOnLeaveToday: number;
+  } | null>(null);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const [balRes, reqRes, holRes] = await Promise.all([
+          getMyLeaveBalance(),
+          getMyLeaveRequests(),
+          getPublicHolidaysList(),
+        ]);
+
+        if (balRes.success && balRes.data) setBalance(balRes.data);
+        if (reqRes.success && reqRes.data) setRequests(reqRes.data);
+        if (holRes.success && holRes.data) setHolidays(holRes.data);
+
+        // Load admin data if needed
+        if (user.role === 'ADMIN' || user.role === 'APPROVER') {
+          const [pendRes, regRes, dashRes] = await Promise.all([
+            getPendingApprovals(),
+            getPendingRegionalHolidaysList(),
+            getDashboardData(),
+          ]);
+          if (pendRes.success && pendRes.data) setPendingLeaves(pendRes.data);
+          if (regRes.success && regRes.data) setPendingRegional(regRes.data);
+          if (dashRes.success && dashRes.data) setDashData(dashRes.data);
+        }
+      } catch (error) {
+        console.error('Dashboard load error:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, [user.role]);
+
+  const loadBreakdown = async () => {
+    const res = await getMyLeaveBreakdown();
+    if (res.success && res.data) {
+      setBreakdown(res.data);
+      setShowBreakdown(true);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="spinner spinner-lg" />
+      </div>
+    );
+  }
+
+  const today = new Date().toISOString().split('T')[0];
+  const upcomingHolidays = holidays.filter((h) => h.date >= today).slice(0, 5);
+  const pendingRequests = requests.filter((r) => r.status === 'PENDING');
+  const upcomingLeave = requests
+    .filter((r) => r.status === 'APPROVED' && r.endDate >= today)
+    .slice(0, 5);
+  const recentHistory = requests.slice(0, 5);
+
+  const currentMonth = new Date().toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+
+  return (
+    <div>
+      <div className="page-header">
+        <h1 className="page-title">Dashboard</h1>
+        <p className="page-subtitle">Welcome back, {user.name}</p>
+      </div>
+
+      {/* Admin/Approver Stats */}
+      {(user.role === 'ADMIN' || user.role === 'APPROVER') && dashData && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="stat-card">
+            <div className="flex items-center gap-2 mb-2">
+              <Users className="w-4 h-4 text-[#ec1c24]" />
+              <span className="stat-label">Employees</span>
+            </div>
+            <span className="stat-value">{dashData.totalEmployees}</span>
+          </div>
+          <Link href="/dashboard/approvals" className="stat-card hover:border-[#ec1c24]/30 transition-colors">
+            <div className="flex items-center gap-2 mb-2">
+              <Clock className="w-4 h-4 text-amber-500" />
+              <span className="stat-label">Pending Leave</span>
+            </div>
+            <span className="stat-value text-amber-600">{dashData.pendingLeaveRequests}</span>
+          </Link>
+          <Link href="/dashboard/regional-holidays" className="stat-card hover:border-[#ec1c24]/30 transition-colors">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertCircle className="w-4 h-4 text-blue-500" />
+              <span className="stat-label">Pending Regional</span>
+            </div>
+            <span className="stat-value text-blue-600">{dashData.pendingRegionalHolidays}</span>
+          </Link>
+          <div className="stat-card">
+            <div className="flex items-center gap-2 mb-2">
+              <CalendarDays className="w-4 h-4 text-green-500" />
+              <span className="stat-label">On Leave Today</span>
+            </div>
+            <span className="stat-value">{dashData.employeesOnLeaveToday}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Employee Balance Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        {/* Main Balance Card */}
+        <div
+          className="card cursor-pointer hover:border-[#ec1c24]/30 transition-colors col-span-1 md:col-span-2"
+          onClick={loadBreakdown}
+        >
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-gray-500">Paid Leave Balance</p>
+              <p className="text-2xl sm:text-3xl font-bold text-gray-900 mt-1">
+                {balance?.availableBalance ?? 0}
+                <span className="text-sm font-normal text-gray-400 ml-1">days available</span>
+              </p>
+            </div>
+            <div className="p-2 rounded-lg bg-[#ec1c24]/10 shrink-0">
+              <TrendingUp className="w-5 h-5 text-[#ec1c24]" />
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3 sm:gap-4 pt-3 border-t border-gray-100">
+            <div>
+              <p className="text-[11px] sm:text-xs text-gray-500">Carry Forward</p>
+              <p className="text-base sm:text-lg font-semibold text-gray-900">
+                {balance ? balance.totalEntitlement - 1 : 0}
+              </p>
+            </div>
+            <div>
+              <p className="text-[11px] sm:text-xs text-gray-500 truncate">{currentMonth}</p>
+              <p className="text-base sm:text-lg font-semibold text-green-600">+1</p>
+            </div>
+            <div>
+              <p className="text-[11px] sm:text-xs text-gray-500">Used</p>
+              <p className="text-base sm:text-lg font-semibold text-gray-600">{balance?.approvedPaidLeave ?? 0}</p>
+            </div>
+          </div>
+          <p className="text-xs text-gray-400 mt-3">Click for detailed monthly breakdown →</p>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="card flex flex-col gap-3">
+          <p className="text-sm font-medium text-gray-500 mb-1">Quick Actions</p>
+          <Link
+            href="/dashboard/request-leave"
+            className="btn btn-primary w-full"
+          >
+            <CalendarPlus className="w-4 h-4" />
+            Request Leave
+          </Link>
+          <Link href="/dashboard/my-leaves" className="btn btn-outline w-full">
+            <CalendarDays className="w-4 h-4" />
+            View My Leaves
+          </Link>
+          <Link href="/dashboard/calendar" className="btn btn-outline w-full">
+            <Calendar className="w-4 h-4" />
+            View Calendar
+          </Link>
+          {balance && balance.pendingReserved > 0 && (
+            <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700">
+              <span className="font-medium">{balance.pendingReserved} day(s)</span> reserved for pending requests
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Pending Approvals for Admin/Approver */}
+      {(user.role === 'ADMIN' || user.role === 'APPROVER') && pendingLeaves.length > 0 && (
+        <div className="card mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-base font-semibold text-gray-900">Pending Leave Approvals</h2>
+            <Link href="/dashboard/approvals" className="text-sm text-[#ec1c24] hover:underline flex items-center gap-1">
+              View All <ChevronRight className="w-3 h-3" />
+            </Link>
+          </div>
+          <div className="table-container">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Employee</th>
+                  <th>Type</th>
+                  <th>Dates</th>
+                  <th>Days</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pendingLeaves.slice(0, 5).map((req) => (
+                  <tr key={req.id}>
+                    <td className="font-medium">{req.employeeName}</td>
+                    <td><StatusBadge status={req.leaveType} /></td>
+                    <td className="text-xs">{formatDate(req.startDate)} – {formatDate(req.endDate)}</td>
+                    <td>{req.numberOfDays}</td>
+                    <td>
+                      <Link href="/dashboard/approvals" className="text-sm text-[#ec1c24] hover:underline">
+                        Review
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Pending Requests */}
+        {pendingRequests.length > 0 && (
+          <div className="card">
+            <h2 className="text-base font-semibold text-gray-900 mb-4">My Pending Requests</h2>
+            <div className="space-y-3">
+              {pendingRequests.map((req) => (
+                <div key={req.id} className="flex items-center justify-between p-3 rounded-lg bg-gray-50">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {formatDate(req.startDate)} – {formatDate(req.endDate)}
+                    </p>
+                    <p className="text-xs text-gray-500">{req.numberOfDays} day(s) · {req.leaveType}</p>
+                  </div>
+                  <StatusBadge status="PENDING" />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Upcoming Approved Leave */}
+        <div className="card">
+          <h2 className="text-base font-semibold text-gray-900 mb-4">Upcoming Leave</h2>
+          {upcomingLeave.length === 0 ? (
+            <div className="empty-state py-6">
+              <CalendarDays className="w-8 h-8 empty-state-icon mx-auto" />
+              <p className="text-sm mt-2">No upcoming approved leave</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {upcomingLeave.map((req) => (
+                <div key={req.id} className="flex items-center justify-between p-3 rounded-lg bg-green-50">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {formatDate(req.startDate)} – {formatDate(req.endDate)}
+                    </p>
+                    <p className="text-xs text-gray-500">{req.numberOfDays} day(s) · {req.leaveType}</p>
+                  </div>
+                  <StatusBadge status="APPROVED" />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Public Holidays */}
+        <div className="card">
+          <h2 className="text-base font-semibold text-gray-900 mb-4">Upcoming Public Holidays</h2>
+          {upcomingHolidays.length === 0 ? (
+            <div className="empty-state py-6">
+              <Calendar className="w-8 h-8 empty-state-icon mx-auto" />
+              <p className="text-sm mt-2">No upcoming public holidays</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {upcomingHolidays.map((h) => (
+                <div key={h.id} className="flex items-center justify-between p-3 rounded-lg bg-blue-50">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{h.name}</p>
+                    <p className="text-xs text-gray-500">{formatDate(h.date)}</p>
+                  </div>
+                  <span className="badge badge-paid">Holiday</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Recent History */}
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-base font-semibold text-gray-900">Recent Leave History</h2>
+            <Link href="/dashboard/my-leaves" className="text-sm text-[#ec1c24] hover:underline">
+              View All
+            </Link>
+          </div>
+          {recentHistory.length === 0 ? (
+            <div className="empty-state py-6">
+              <Clock className="w-8 h-8 empty-state-icon mx-auto" />
+              <p className="text-sm mt-2">No leave history yet</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {recentHistory.map((req) => (
+                <div key={req.id} className="flex items-center justify-between p-3 rounded-lg bg-gray-50">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {formatDate(req.startDate)} – {formatDate(req.endDate)}
+                    </p>
+                    <p className="text-xs text-gray-500">{req.numberOfDays} day(s) · {req.leaveType}</p>
+                  </div>
+                  <StatusBadge status={req.status} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Monthly Breakdown Modal */}
+      {showBreakdown && (
+        <div className="modal-overlay" onClick={() => setShowBreakdown(false)}>
+          <div className="modal max-w-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Leave Balance Breakdown</h3>
+              <button onClick={() => setShowBreakdown(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="table-container">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Month</th>
+                    <th>Opening</th>
+                    <th>Entitlement</th>
+                    <th>Used</th>
+                    <th>Pending</th>
+                    <th>Balance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {breakdown.map((m) => (
+                    <tr key={`${m.year}-${m.month}`}>
+                      <td className="font-medium">{m.monthName} {m.year}</td>
+                      <td>{m.openingBalance}</td>
+                      <td className="text-green-600">+{m.entitlement}</td>
+                      <td className="text-red-600">{m.approvedUsed > 0 ? `-${m.approvedUsed}` : '0'}</td>
+                      <td className="text-amber-600">{m.pendingReserved > 0 ? `-${m.pendingReserved}` : '0'}</td>
+                      <td className="font-semibold">{m.closingBalance}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function formatDate(dateStr: string): string {
+  if (!dateStr) return '';
+  const date = new Date(dateStr + 'T00:00:00+05:30');
+  return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+}
