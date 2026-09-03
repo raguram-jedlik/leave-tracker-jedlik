@@ -9,8 +9,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'Jedlik Motors — Leave Portal',
-  description: 'Employee Leave Planning & Management System for Jedlik Motors',
+  title: 'Jedlik — Leave Portal',
+  description: 'Employee Leave Planning & Management System',
   robots: 'noindex, nofollow', // Internal application — no search indexing
 };
 

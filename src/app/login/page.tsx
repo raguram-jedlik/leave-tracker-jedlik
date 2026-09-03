@@ -60,11 +60,12 @@ export default function LoginPage() {
         <div className="relative bg-[#141414] sm:bg-white/5 sm:backdrop-blur-xl border border-white/10 rounded-2xl p-6 sm:p-8 shadow-2xl">
           {/* Logo */}
           <div className="text-center mb-6 sm:mb-8">
-            <h1 className="text-xl sm:text-2xl font-bold tracking-[0.2em] text-[#ec1c24] mb-1"
-                style={{ fontFamily: 'Orbitron, monospace' }}>
-              JEDLIK MOTORS
-            </h1>
-            <p className="text-[10px] sm:text-xs text-gray-400 tracking-[0.15em] uppercase">
+            <img
+              src="/jedlik-logo.jpg"
+              alt="Jedlik"
+              className="mx-auto h-16 sm:h-20 w-auto"
+            />
+            <p className="text-[10px] sm:text-xs text-gray-400 tracking-[0.15em] uppercase mt-3">
               Employee Leave Portal
             </p>
           </div>
