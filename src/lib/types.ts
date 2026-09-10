@@ -111,11 +111,17 @@ export interface Setting {
 
 // --- Leave Balance ---
 export interface LeaveBalance {
-  totalEntitlement: number;
-  approvedPaidLeave: number;
-  pendingReserved: number;
-  availableBalance: number;
-  unreservedBalance: number;
+  currentCycle: {
+    startDate: string; // YYYY-MM-DD of the 26th
+    endDate: string;   // YYYY-MM-DD of the 25th
+    label: string;     // e.g. "26 Aug – 25 Sep 2026"
+  };
+  cycleSlotUsed: boolean; // true if a PENDING/APPROVED PAID leave starts in this cycle
+  cycleSlotUsedBy?: {
+    startDate: string;
+    endDate: string;
+    status: LeaveStatus;
+  };
 }
 
 export interface MonthlyBreakdown {

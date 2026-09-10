@@ -5,181 +5,93 @@
 
 import {
   LeaveBalance,
-  MonthlyBreakdown,
   LeaveRequest,
   LeaveLedgerEntry,
-  SETTINGS_KEYS,
 } from '@/lib/types';
-import { getSettings } from '@/lib/services/settings-service';
-import { calculateLeaveDays, splitLeaveAcrossMonths } from '@/lib/date-utils';
+import {
+  calculateLeaveDays,
+  getCycleForDate,
+  LeaveCycle,
+  getCurrentCycle,
+} from '@/lib/date-utils';
 
 // Re-export for backward compatibility with existing server-side callers
-export { calculateLeaveDays, splitLeaveAcrossMonths };
+export { calculateLeaveDays, getCycleForDate };
 
 /**
- * Get the monthly entitlement from settings.
- * Defaults to 1 if not configured.
- */
-export async function getMonthlyEntitlement(): Promise<number> {
-  const settings = await getSettings();
-  const setting = settings.find((s) => s.key === SETTINGS_KEYS.MONTHLY_ENTITLEMENT);
-  return setting ? parseFloat(setting.value) : 1;
-}
-
-/**
- * Calculate the total number of months of entitlement from startDate to referenceDate.
- */
-function calculateEntitlementMonths(startDate: string, referenceDate: Date): number {
-  const start = new Date(startDate + 'T00:00:00+05:30');
-  const refYear = referenceDate.getFullYear();
-  const refMonth = referenceDate.getMonth(); // 0-based
-
-  const startYear = start.getFullYear();
-  const startMonth = start.getMonth(); // 0-based
-
-  // Number of complete months from start to reference (inclusive of both start and current month)
-  let months = (refYear - startYear) * 12 + (refMonth - startMonth) + 1;
-
-  if (months < 0) months = 0;
-
-  return months;
-}
-
-/**
- * Calculate leave balance for an employee.
+ * Return the cycle (26th–25th) that an employee's existing requests cover
+ * for the given reference date, plus whether their PAID slot is already used.
  *
- * Logic:
- * 1. Count total months from employee start date to now → total entitlement
- * 2. Check leave ledger for any overrides
- * 3. Sum approved PAID leave days → consumed
- * 4. Sum pending PAID leave days → reserved
- * 5. Available = total entitlement - consumed
- * 6. Unreserved = available - reserved
+ * The cycle rule: each employee is allowed exactly 1 PAID leave request per
+ * cycle. A request whose start date falls in the cycle consumes the slot.
+ * Cancelled and rejected requests do not consume it. UNPAID and
+ * regional-holiday requests never consume it.
+ *
+ * `ledgerEntries` is accepted for API back-compat but ignored — the
+ * monthly-accrual / ledger-override model has been retired.
  */
 export async function calculateLeaveBalance(
-  employeeStartDate: string,
   leaveRequests: LeaveRequest[],
-  ledgerEntries: LeaveLedgerEntry[],
-  referenceDate?: Date
+  referenceDate?: Date,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _ledgerEntries?: LeaveLedgerEntry[],
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _employeeStartDate?: string
 ): Promise<LeaveBalance> {
-  const now = referenceDate || new Date();
-  const monthlyEntitlement = await getMonthlyEntitlement();
+  const now = referenceDate ?? new Date();
+  const cycle = getCycleForDate(now);
+  const cycleStart = cycle.startDate;
 
-  // Calculate total months of entitlement
-  const totalMonths = calculateEntitlementMonths(employeeStartDate, now);
-
-  // Check ledger for any custom entitlements
-  let totalEntitlement = 0;
-  const start = new Date(employeeStartDate + 'T00:00:00+05:30');
-
-  for (let i = 0; i < totalMonths; i++) {
-    const d = new Date(start.getFullYear(), start.getMonth() + i, 1);
-    const year = d.getFullYear();
-    const month = d.getMonth() + 1;
-
-    // Check if there's a ledger override for this month
-    const override = ledgerEntries.find(
-      (e) => e.year === year && e.month === month
-    );
-
-    if (override) {
-      totalEntitlement += override.monthlyEntitlement;
-    } else {
-      totalEntitlement += monthlyEntitlement;
-    }
-  }
-
-  // Calculate approved paid leave
-  const approvedPaidLeave = leaveRequests
-    .filter((r) => r.status === 'APPROVED' && r.leaveType === 'PAID')
-    .reduce((sum, r) => sum + r.numberOfDays, 0);
-
-  // Calculate pending reserved paid leave
-  const pendingReserved = leaveRequests
-    .filter((r) => r.status === 'PENDING' && r.leaveType === 'PAID')
-    .reduce((sum, r) => sum + r.numberOfDays, 0);
-
-  const availableBalance = totalEntitlement - approvedPaidLeave;
-  const unreservedBalance = availableBalance - pendingReserved;
+  const consuming = leaveRequests.find(
+    (r) =>
+      r.leaveType === 'PAID' &&
+      (r.status === 'PENDING' || r.status === 'APPROVED') &&
+      getCycleForDate(new Date(r.startDate + 'T00:00:00+05:30')).startDate === cycleStart
+  );
 
   return {
-    totalEntitlement,
-    approvedPaidLeave,
-    pendingReserved,
-    availableBalance,
-    unreservedBalance,
+    currentCycle: cycle,
+    cycleSlotUsed: !!consuming,
+    cycleSlotUsedBy: consuming
+      ? {
+          startDate: consuming.startDate,
+          endDate: consuming.endDate,
+          status: consuming.status,
+        }
+      : undefined,
   };
 }
 
 /**
- * Calculate month-by-month breakdown of leave balance.
+ * Whether the employee has already used their PAID-leave slot for the cycle
+ * containing the given start date. A cycle runs from the 26th of one month to
+ * the 25th of the next. A PAID request whose start date falls in the cycle
+ * consumes the slot, regardless of how many days it spans. Cancelled and
+ * rejected requests do not consume the slot. UNPAID and regional-holiday
+ * requests never consume the slot.
  */
-export async function calculateMonthlyBreakdown(
-  employeeStartDate: string,
-  leaveRequests: LeaveRequest[],
-  ledgerEntries: LeaveLedgerEntry[],
-  referenceDate?: Date
-): Promise<MonthlyBreakdown[]> {
-  const now = referenceDate || new Date();
-  const monthlyEntitlement = await getMonthlyEntitlement();
-  const totalMonths = calculateEntitlementMonths(employeeStartDate, now);
-  const start = new Date(employeeStartDate + 'T00:00:00+05:30');
-
-  const monthNames = [
-    '', 'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
-  ];
-
-  const breakdown: MonthlyBreakdown[] = [];
-  let runningBalance = 0;
-
-  for (let i = 0; i < totalMonths; i++) {
-    const d = new Date(start.getFullYear(), start.getMonth() + i, 1);
-    const year = d.getFullYear();
-    const month = d.getMonth() + 1;
-
-    // Check ledger override
-    const override = ledgerEntries.find(
-      (e) => e.year === year && e.month === month
-    );
-    const entitlement = override ? override.monthlyEntitlement : monthlyEntitlement;
-
-    // Approved paid leave used in this month
-    const approvedUsed = leaveRequests
-      .filter((r) => r.status === 'APPROVED' && r.leaveType === 'PAID')
-      .reduce((sum, r) => {
-        const segments = splitLeaveAcrossMonths(r.startDate, r.endDate);
-        const segment = segments.find((s) => s.year === year && s.month === month);
-        return sum + (segment?.days || 0);
-      }, 0);
-
-    // Pending reserved in this month
-    const pendingReserved = leaveRequests
-      .filter((r) => r.status === 'PENDING' && r.leaveType === 'PAID')
-      .reduce((sum, r) => {
-        const segments = splitLeaveAcrossMonths(r.startDate, r.endDate);
-        const segment = segments.find((s) => s.year === year && s.month === month);
-        return sum + (segment?.days || 0);
-      }, 0);
-
-    const openingBalance = runningBalance;
-    const closingBalance = openingBalance + entitlement - approvedUsed;
-    runningBalance = closingBalance;
-
-    breakdown.push({
-      year,
-      month,
-      monthName: monthNames[month],
-      openingBalance,
-      entitlement,
-      approvedUsed,
-      pendingReserved,
-      closingBalance,
-    });
-  }
-
-  return breakdown;
+export function isPaidLeaveCycleSlotConsumed(
+  existingRequests: LeaveRequest[],
+  newStartDate: string
+): boolean {
+  const newCycle = getCycleForDate(new Date(newStartDate + 'T00:00:00+05:30'));
+  return existingRequests.some(
+    (r) =>
+      r.leaveType === 'PAID' &&
+      (r.status === 'PENDING' || r.status === 'APPROVED') &&
+      getCycleForDate(new Date(r.startDate + 'T00:00:00+05:30')).startDate ===
+        newCycle.startDate
+  );
 }
+
+/**
+ * Return the cycle containing the given date.
+ * Re-exported so callers can render the cycle in the UI.
+ */
+export type { LeaveCycle };
+
+// Re-export getCurrentCycle for callers that want the label
+export { getCurrentCycle };
 
 /**
  * Validate a leave request before submission.
@@ -252,16 +164,12 @@ export async function validateLeaveRequest(
     }
   }
 
-  // Check paid leave balance
+  // Check paid leave cycle slot
   if (leaveType === 'PAID') {
-    const balance = await calculateLeaveBalance(
-      employeeStartDate,
-      existingRequests,
-      ledgerEntries
-    );
-
-    if (numberOfDays > balance.unreservedBalance) {
-      return `Insufficient paid leave balance. You have ${balance.unreservedBalance} day(s) available (${balance.availableBalance} available, ${balance.pendingReserved} pending). Requested: ${numberOfDays} day(s).`;
+    const slotConsumed = isPaidLeaveCycleSlotConsumed(existingRequests, startDate);
+    if (slotConsumed) {
+      const cycle = getCycleForDate(new Date(startDate + 'T00:00:00+05:30'));
+      return `You already have a paid leave in this cycle (${cycle.label}). Only 1 paid leave is allowed per cycle (26th–25th).`;
     }
   }
 

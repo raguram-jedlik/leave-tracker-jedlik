@@ -19,7 +19,6 @@ import { getEmployeeLedger } from '@/lib/services/leave-ledger-service';
 import { getPublicHolidayDates } from '@/lib/services/public-holiday-service';
 import {
   calculateLeaveBalance,
-  calculateMonthlyBreakdown,
   calculateLeaveDays,
   validateLeaveRequest,
 } from '@/lib/services/leave-calculation';
@@ -33,7 +32,6 @@ import {
   AUDIT_ACTIONS,
   LeaveBalance,
   LeaveRequest,
-  MonthlyBreakdown,
   ApiResponse,
 } from '@/lib/types';
 
@@ -42,46 +40,12 @@ export async function getMyLeaveBalance(): Promise<ApiResponse<LeaveBalance>> {
   if (!session?.user) return { success: false, error: 'Not authenticated.' };
 
   try {
-    const employee = await getEmployeeById(session.user.id);
-    if (!employee) return { success: false, error: 'Employee not found.' };
-
     const requests = await getEmployeeLeaveRequests(session.user.id);
-    const ledger = await getEmployeeLedger(session.user.id);
-
-    const balance = await calculateLeaveBalance(
-      employee.startDate,
-      requests,
-      ledger
-    );
-
+    const balance = await calculateLeaveBalance(requests);
     return { success: true, data: balance };
   } catch (error) {
     console.error('Error getting leave balance:', error);
     return { success: false, error: 'Unable to load leave balance. Please try again.' };
-  }
-}
-
-export async function getMyLeaveBreakdown(): Promise<ApiResponse<MonthlyBreakdown[]>> {
-  const session = await auth();
-  if (!session?.user) return { success: false, error: 'Not authenticated.' };
-
-  try {
-    const employee = await getEmployeeById(session.user.id);
-    if (!employee) return { success: false, error: 'Employee not found.' };
-
-    const requests = await getEmployeeLeaveRequests(session.user.id);
-    const ledger = await getEmployeeLedger(session.user.id);
-
-    const breakdown = await calculateMonthlyBreakdown(
-      employee.startDate,
-      requests,
-      ledger
-    );
-
-    return { success: true, data: breakdown };
-  } catch (error) {
-    console.error('Error getting breakdown:', error);
-    return { success: false, error: 'Unable to load leave breakdown. Please try again.' };
   }
 }
 
@@ -101,18 +65,8 @@ export async function getEmployeeLeaveBalance(
   }
 
   try {
-    const employee = await getEmployeeById(employeeId);
-    if (!employee) return { success: false, error: 'Employee not found.' };
-
     const requests = await getEmployeeLeaveRequests(employeeId);
-    const ledger = await getEmployeeLedger(employeeId);
-
-    const balance = await calculateLeaveBalance(
-      employee.startDate,
-      requests,
-      ledger
-    );
-
+    const balance = await calculateLeaveBalance(requests);
     return { success: true, data: balance };
   } catch (error) {
     console.error('Error getting employee leave balance:', error);

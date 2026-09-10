@@ -43,7 +43,7 @@ export async function getReportData(): Promise<ApiResponse<{
   rejectedRequests: number;
   totalPaidDaysUsed: number;
   totalUnpaidDaysUsed: number;
-  employeeBalances: { name: string; available: number; used: number; pending: number }[];
+  employeeBalances: { name: string; cycleSlotUsed: boolean }[];
   monthlyUsage: { month: string; paid: number; unpaid: number }[];
   pendingRegionalHolidays: number;
 }>> {
@@ -76,13 +76,10 @@ export async function getReportData(): Promise<ApiResponse<{
     const employeeBalances = await Promise.all(
       activeEmployees.map(async (emp) => {
         const empRequests = leaveRequests.filter((r) => r.employeeId === emp.id);
-        const ledger = await getEmployeeLedger(emp.id);
-        const balance = await calculateLeaveBalance(emp.startDate, empRequests, ledger);
+        const balance = await calculateLeaveBalance(empRequests);
         return {
           name: emp.name,
-          available: balance.availableBalance,
-          used: balance.approvedPaidLeave,
-          pending: balance.pendingReserved,
+          cycleSlotUsed: balance.cycleSlotUsed,
         };
       })
     );

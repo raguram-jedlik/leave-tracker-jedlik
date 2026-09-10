@@ -111,24 +111,20 @@ export default function RequestLeavePage() {
         <p className="page-subtitle">Submit a new leave or regional holiday request</p>
       </div>
 
-      {/* Balance Info */}
+      {/* Cycle Info */}
       {balance && (
         <div className="card mb-6 bg-gradient-to-r from-[#ec1c24]/5 to-transparent border-[#ec1c24]/20">
           <div className="flex items-center gap-4">
             <div className="p-2 rounded-lg bg-[#ec1c24]/10">
               <CalendarPlus className="w-5 h-5 text-[#ec1c24]" />
             </div>
-            <div>
-              <p className="text-sm text-gray-500">Available Paid Leave</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {balance.unreservedBalance} <span className="text-sm font-normal text-gray-400">days</span>
+            <div className="flex-1">
+              <p className="text-sm text-gray-500">Current cycle</p>
+              <p className="text-base font-bold text-gray-900">{balance.currentCycle.label}</p>
+              <p className={`text-xs mt-0.5 ${balance.cycleSlotUsed ? 'text-amber-600' : 'text-green-600'}`}>
+                Paid leave {balance.cycleSlotUsed ? 'already used (1 / 1)' : 'available (0 / 1)'}
               </p>
             </div>
-            {balance.pendingReserved > 0 && (
-              <div className="ml-auto px-3 py-1 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700">
-                {balance.pendingReserved} day(s) reserved
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -209,9 +205,9 @@ export default function RequestLeavePage() {
                   <span className="font-semibold text-gray-900">{numberOfDays}</span>
                   <span className="text-gray-600"> calendar day{numberOfDays > 1 ? 's' : ''}</span>
                 </p>
-                {leaveType === 'PAID' && balance && numberOfDays > balance.unreservedBalance && (
+                {leaveType === 'PAID' && balance?.cycleSlotUsed && (
                   <p className="text-xs text-red-600 mt-1">
-                    ⚠ Exceeds available paid leave ({balance.unreservedBalance} days)
+                    ⚠ You already have a paid leave in this cycle. Only 1 paid leave per cycle (26th–25th).
                   </p>
                 )}
               </div>
@@ -230,7 +226,11 @@ export default function RequestLeavePage() {
             </div>
 
             <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 pt-2">
-              <button type="submit" className="btn btn-primary" disabled={loading}>
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={loading || (leaveType === 'PAID' && balance?.cycleSlotUsed === true)}
+              >
                 {loading ? <span className="spinner" /> : 'Submit Request'}
               </button>
               <button

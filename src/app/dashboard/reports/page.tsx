@@ -24,7 +24,7 @@ interface ReportData {
   rejectedRequests: number;
   totalPaidDaysUsed: number;
   totalUnpaidDaysUsed: number;
-  employeeBalances: { name: string; available: number; used: number; pending: number }[];
+  employeeBalances: { name: string; cycleSlotUsed: boolean }[];
   monthlyUsage: { month: string; paid: number; unpaid: number }[];
   pendingRegionalHolidays: number;
 }
@@ -52,12 +52,10 @@ export default function ReportsPage() {
 
   const exportCSV = () => {
     if (!data) return;
-    const headers = ['Employee Name', 'Available Balance (Days)', 'Used (Days)', 'Pending Reserved (Days)'];
+    const headers = ['Employee Name', 'Cycle Slot Used (1/1)'];
     const rows = data.employeeBalances.map((e) => [
       `"${e.name.replace(/"/g, '""')}"`,
-      e.available,
-      e.used,
-      e.pending,
+      e.cycleSlotUsed ? '1' : '0',
     ]);
 
     const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
@@ -191,9 +189,7 @@ export default function ReportsPage() {
               <thead className="sticky top-0 bg-white">
                 <tr>
                   <th>Employee</th>
-                  <th className="text-right">Available Balance</th>
-                  <th className="text-right">Used Days</th>
-                  <th className="text-right">Reserved (Pending)</th>
+                  <th className="text-right">Current Cycle Paid Slot</th>
                 </tr>
               </thead>
               <tbody>
@@ -201,15 +197,10 @@ export default function ReportsPage() {
                   <tr key={idx} className="hover:bg-gray-50">
                     <td className="font-medium text-gray-900">{emp.name}</td>
                     <td className="text-right">
-                      <span className="font-bold text-gray-900">{emp.available}</span>
-                      <span className="text-xs text-gray-500 ml-1">days</span>
-                    </td>
-                    <td className="text-right text-gray-600">{emp.used} days</td>
-                    <td className="text-right">
-                      {emp.pending > 0 ? (
-                        <span className="text-amber-600 font-semibold">{emp.pending} days</span>
+                      {emp.cycleSlotUsed ? (
+                        <span className="text-amber-600 font-semibold">1 / 1 used</span>
                       ) : (
-                        <span className="text-gray-400">0</span>
+                        <span className="text-green-600 font-semibold">0 / 1 (available)</span>
                       )}
                     </td>
                   </tr>

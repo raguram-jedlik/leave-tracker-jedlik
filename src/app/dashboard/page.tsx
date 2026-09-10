@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { getMyLeaveBalance, getMyLeaveRequests, getMyLeaveBreakdown } from '@/app/actions/leave-actions';
+import { getMyLeaveBalance, getMyLeaveRequests } from '@/app/actions/leave-actions';
 import { getPublicHolidaysList, getMyRegionalHolidays } from '@/app/actions/holiday-actions';
 import { getDashboardData } from '@/app/actions/report-actions';
 import { getPendingApprovals } from '@/app/actions/leave-actions';
@@ -13,22 +13,18 @@ import {
   CalendarDays,
   CalendarPlus,
   Clock,
-  TrendingUp,
   Users,
   AlertCircle,
   ChevronRight,
   Calendar,
-  X,
 } from 'lucide-react';
-import type { LeaveBalance, LeaveRequest, PublicHoliday, MonthlyBreakdown, RegionalHolidayRequest } from '@/lib/types';
+import type { LeaveBalance, LeaveRequest, PublicHoliday, RegionalHolidayRequest } from '@/lib/types';
 
 export default function DashboardPage() {
   const user = useSession();
   const [balance, setBalance] = useState<LeaveBalance | null>(null);
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [holidays, setHolidays] = useState<PublicHoliday[]>([]);
-  const [breakdown, setBreakdown] = useState<MonthlyBreakdown[]>([]);
-  const [showBreakdown, setShowBreakdown] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Admin/Approver specific
@@ -74,14 +70,6 @@ export default function DashboardPage() {
     load();
   }, [user.role]);
 
-  const loadBreakdown = async () => {
-    const res = await getMyLeaveBreakdown();
-    if (res.success && res.data) {
-      setBreakdown(res.data);
-      setShowBreakdown(true);
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -97,8 +85,6 @@ export default function DashboardPage() {
     .filter((r) => r.status === 'APPROVED' && r.endDate >= today)
     .slice(0, 5);
   const recentHistory = requests.slice(0, 5);
-
-  const currentMonth = new Date().toLocaleString('en-IN', { month: 'long', year: 'numeric' });
 
   return (
     <div>
@@ -143,40 +129,38 @@ export default function DashboardPage() {
 
       {/* Employee Balance Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        {/* Main Balance Card */}
-        <div
-          className="card cursor-pointer hover:border-[#ec1c24]/30 transition-colors col-span-1 md:col-span-2"
-          onClick={loadBreakdown}
-        >
+        {/* Main Cycle Card */}
+        <div className="card col-span-1 md:col-span-2">
           <div className="flex items-start justify-between gap-3 mb-3">
             <div className="min-w-0">
-              <p className="text-sm font-medium text-gray-500">Paid Leave Balance</p>
-              <p className="text-2xl sm:text-3xl font-bold text-gray-900 mt-1">
-                {balance?.availableBalance ?? 0}
-                <span className="text-sm font-normal text-gray-400 ml-1">days available</span>
+              <p className="text-sm font-medium text-gray-500">Current Cycle</p>
+              <p className="text-lg sm:text-xl font-bold text-gray-900 mt-1">
+                {balance?.currentCycle.label ?? '—'}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                1 paid leave allowed per cycle (26th → 25th)
               </p>
             </div>
             <div className="p-2 rounded-lg bg-[#ec1c24]/10 shrink-0">
-              <TrendingUp className="w-5 h-5 text-[#ec1c24]" />
+              <CalendarDays className="w-5 h-5 text-[#ec1c24]" />
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-3 sm:gap-4 pt-3 border-t border-gray-100">
-            <div>
-              <p className="text-[11px] sm:text-xs text-gray-500">Carry Forward</p>
-              <p className="text-base sm:text-lg font-semibold text-gray-900">
-                {balance ? balance.totalEntitlement - 1 : 0}
+          <div className="pt-3 border-t border-gray-100">
+            <p className="text-[11px] sm:text-xs text-gray-500">Paid leaves used this cycle</p>
+            <p
+              className={`text-2xl sm:text-3xl font-bold mt-1 ${
+                balance?.cycleSlotUsed ? 'text-amber-600' : 'text-green-600'
+              }`}
+            >
+              {balance?.cycleSlotUsed ? '1 / 1' : '0 / 1'}
+            </p>
+            {balance?.cycleSlotUsed && balance.cycleSlotUsedBy && (
+              <p className="text-xs text-gray-500 mt-1">
+                {balance.cycleSlotUsedBy.startDate} – {balance.cycleSlotUsedBy.endDate}{' '}
+                ({balance.cycleSlotUsedBy.status.toLowerCase()})
               </p>
-            </div>
-            <div>
-              <p className="text-[11px] sm:text-xs text-gray-500 truncate">{currentMonth}</p>
-              <p className="text-base sm:text-lg font-semibold text-green-600">+1</p>
-            </div>
-            <div>
-              <p className="text-[11px] sm:text-xs text-gray-500">Used</p>
-              <p className="text-base sm:text-lg font-semibold text-gray-600">{balance?.approvedPaidLeave ?? 0}</p>
-            </div>
+            )}
           </div>
-          <p className="text-xs text-gray-400 mt-3">Click for detailed monthly breakdown →</p>
         </div>
 
         {/* Quick Actions */}
@@ -197,11 +181,6 @@ export default function DashboardPage() {
             <Calendar className="w-4 h-4" />
             View Calendar
           </Link>
-          {balance && balance.pendingReserved > 0 && (
-            <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700">
-              <span className="font-medium">{balance.pendingReserved} day(s)</span> reserved for pending requests
-            </div>
-          )}
         </div>
       </div>
 
@@ -344,46 +323,6 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
-
-      {/* Monthly Breakdown Modal */}
-      {showBreakdown && (
-        <div className="modal-overlay" onClick={() => setShowBreakdown(false)}>
-          <div className="modal max-w-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Leave Balance Breakdown</h3>
-              <button onClick={() => setShowBreakdown(false)} className="text-gray-400 hover:text-gray-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="table-container">
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Month</th>
-                    <th>Opening</th>
-                    <th>Entitlement</th>
-                    <th>Used</th>
-                    <th>Pending</th>
-                    <th>Balance</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {breakdown.map((m) => (
-                    <tr key={`${m.year}-${m.month}`}>
-                      <td className="font-medium">{m.monthName} {m.year}</td>
-                      <td>{m.openingBalance}</td>
-                      <td className="text-green-600">+{m.entitlement}</td>
-                      <td className="text-red-600">{m.approvedUsed > 0 ? `-${m.approvedUsed}` : '0'}</td>
-                      <td className="text-amber-600">{m.pendingReserved > 0 ? `-${m.pendingReserved}` : '0'}</td>
-                      <td className="font-semibold">{m.closingBalance}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

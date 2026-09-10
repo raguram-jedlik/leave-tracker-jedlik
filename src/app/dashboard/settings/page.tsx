@@ -73,20 +73,21 @@ export default function SettingsPage() {
     <div>
       <div className="page-header">
         <h1 className="page-title">Policy & Settings</h1>
-        <p className="page-subtitle">Configure organization leave policies, monthly accrual rates, and roll-over rules</p>
+        <p className="page-subtitle">Configure organization leave policies and the cycle rule</p>
       </div>
 
       <div className="max-w-3xl space-y-6">
-        {/* Monthly Entitlement */}
+        {/* Paid Leaves Per Cycle */}
         <div className="card">
           <div className="flex items-start gap-3 mb-4">
             <div className="p-2 rounded-lg bg-[#ec1c24]/10 text-[#ec1c24] shrink-0">
               <Calendar className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-gray-900">Monthly Paid Leave Accrual</h2>
+              <h2 className="text-base font-semibold text-gray-900">Paid Leaves Per Cycle</h2>
               <p className="text-xs text-gray-500 mt-0.5">
-                Number of paid leave days credited to each employee's account per completed month of service.
+                Number of paid leave requests allowed per employee in each 26th–25th cycle. Default is 1.
+                Unused slots do not carry over to the next cycle.
               </p>
             </div>
           </div>
@@ -95,15 +96,15 @@ export default function SettingsPage() {
             <div className="relative flex-1">
               <input
                 type="number"
-                step="0.5"
-                min="0"
+                step="1"
+                min="1"
                 max="10"
                 value={monthlyEntitlement}
                 onChange={(e) => setMonthlyEntitlement(e.target.value)}
-                className="input pr-12 font-semibold text-gray-900"
+                className="input pr-20 font-semibold text-gray-900"
               />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500 font-medium">
-                days / mo
+                leaves / cycle
               </span>
             </div>
             <button
@@ -116,7 +117,7 @@ export default function SettingsPage() {
               ) : (
                 <>
                   <Save className="w-4 h-4" />
-                  Save Accrual
+                  Save
                 </>
               )}
             </button>

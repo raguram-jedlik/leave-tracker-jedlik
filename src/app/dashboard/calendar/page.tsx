@@ -323,8 +323,11 @@ export default function CalendarPage() {
         <div className="flex items-center gap-2 self-start sm:self-auto">
           {balance && (
             <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-lg shadow-xs text-xs">
-              <span className="text-gray-500">Available Paid:</span>
-              <span className="font-bold text-[#ec1c24]">{balance.unreservedBalance} days</span>
+              <span className="text-gray-500">Cycle:</span>
+              <span className="font-bold text-[#ec1c24]">{balance.currentCycle.label}</span>
+              <span className={`font-bold ${balance.cycleSlotUsed ? 'text-amber-600' : 'text-green-600'}`}>
+                ({balance.cycleSlotUsed ? '1/1 used' : '0/1 used'})
+              </span>
             </div>
           )}
           <button onClick={openManualRequest} className="btn btn-primary">
@@ -342,9 +345,9 @@ export default function CalendarPage() {
             <strong className="text-gray-900 font-semibold">Tip:</strong> Click on any future calendar cell to quickly apply for leave.
           </span>
         </div>
-        {balance && balance.pendingReserved > 0 && (
+        {balance?.cycleSlotUsed && (
           <span className="text-amber-700 font-medium shrink-0">
-            {balance.pendingReserved} day(s) reserved in pending
+            Paid leave already used in this cycle
           </span>
         )}
       </div>
@@ -488,12 +491,15 @@ export default function CalendarPage() {
             {balance && (
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-4 flex items-center justify-between text-xs">
                 <div>
-                  <span className="text-gray-500">Available Paid Leave: </span>
-                  <span className="font-bold text-gray-900">{balance.unreservedBalance} days</span>
+                  <span className="text-gray-500">Cycle: </span>
+                  <span className="font-bold text-gray-900">{balance.currentCycle.label}</span>
+                  <span className={`ml-2 font-bold ${balance.cycleSlotUsed ? 'text-amber-600' : 'text-green-600'}`}>
+                    {balance.cycleSlotUsed ? '1/1 used' : '0/1 used'}
+                  </span>
                 </div>
-                {balance.pendingReserved > 0 && (
+                {balance.cycleSlotUsed && balance.cycleSlotUsedBy && (
                   <span className="text-amber-600 font-medium">
-                    {balance.pendingReserved}d reserved
+                    Booked {balance.cycleSlotUsedBy.startDate}
                   </span>
                 )}
               </div>
@@ -582,9 +588,9 @@ export default function CalendarPage() {
                   <div className="p-2.5 rounded-lg bg-gray-50 border border-gray-200 text-xs">
                     <span className="font-semibold text-gray-900">{numberOfDays}</span>
                     <span className="text-gray-600"> calendar day{numberOfDays > 1 ? 's' : ''}</span>
-                    {leaveType === 'PAID' && balance && numberOfDays > balance.unreservedBalance && (
+                    {leaveType === 'PAID' && balance?.cycleSlotUsed && (
                       <p className="text-red-600 font-medium mt-1">
-                        ⚠ Exceeds available balance ({balance.unreservedBalance} days)
+                        ⚠ Paid leave already used this cycle (only 1 per cycle allowed)
                       </p>
                     )}
                   </div>
