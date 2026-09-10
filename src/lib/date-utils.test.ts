@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getCycleForDate, getCurrentCycle, type LeaveCycle } from './date-utils';
+import { getCycleForDate, getCurrentCycle, formatDateRange, type LeaveCycle } from './date-utils';
 
 describe('getCycleForDate', () => {
   it('returns cycle starting on the 26th for dates on/after the 26th', () => {
@@ -56,5 +56,23 @@ describe('getCurrentCycle', () => {
     const cycle = getCurrentCycle(new Date(2026, 8, 15)); // 15 Sep 2026
     expect(cycle.startDate).toBe('2026-08-26');
     expect(cycle.endDate).toBe('2026-09-25');
+  });
+});
+
+describe('formatDateRange', () => {
+  it('returns a single date when start and end are the same day', () => {
+    expect(formatDateRange('2026-09-23', '2026-09-23')).toBe('23 Sep 2026');
+  });
+
+  it('returns "start–end month year" when same month and year', () => {
+    expect(formatDateRange('2026-09-23', '2026-09-27')).toBe('23–27 Sep 2026');
+  });
+
+  it('returns "start month – end month year" when same year, different months', () => {
+    expect(formatDateRange('2026-09-28', '2026-10-05')).toBe('28 Sep – 5 Oct 2026');
+  });
+
+  it('includes both years when range crosses a year boundary', () => {
+    expect(formatDateRange('2026-12-28', '2027-01-03')).toBe('28 Dec 2026 – 3 Jan 2027');
   });
 });

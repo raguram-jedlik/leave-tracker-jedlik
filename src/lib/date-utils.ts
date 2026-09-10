@@ -56,6 +56,41 @@ export function getCurrentCycle(referenceDate?: Date): LeaveCycle {
 }
 
 /**
+ * Format a date range for display. Returns the start and end dates together
+ * so email subjects don't lose information about the leave period.
+ *
+ * - Same day → "23 Sep 2026"
+ * - Same month → "23–27 Sep 2026"
+ * - Same year, different months → "28 Sep – 5 Oct 2026"
+ * - Different years → "28 Dec 2026 – 3 Jan 2027"
+ */
+export function formatDateRange(startDate: string, endDate: string): string {
+  const start = new Date(startDate + 'T00:00:00+05:30');
+  const end = new Date(endDate + 'T00:00:00+05:30');
+
+  const startDay = start.getDate();
+  const endDay = end.getDate();
+  const startMonth = MONTH_NAMES[start.getMonth()];
+  const endMonth = MONTH_NAMES[end.getMonth()];
+  const startYear = start.getFullYear();
+  const endYear = end.getFullYear();
+
+  if (startDate === endDate) {
+    return `${startDay} ${startMonth} ${startYear}`;
+  }
+
+  if (startYear === endYear && start.getMonth() === end.getMonth()) {
+    return `${startDay}–${endDay} ${startMonth} ${startYear}`;
+  }
+
+  if (startYear === endYear) {
+    return `${startDay} ${startMonth} – ${endDay} ${endMonth} ${endYear}`;
+  }
+
+  return `${startDay} ${startMonth} ${startYear} – ${endDay} ${endMonth} ${endYear}`;
+}
+
+/**
  * Calculate the number of calendar days between two dates (inclusive).
  * Both dates are in YYYY-MM-DD format.
  */

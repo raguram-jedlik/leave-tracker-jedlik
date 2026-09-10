@@ -4,6 +4,7 @@
 
 import { Resend } from 'resend';
 import { LeaveRequest, RegionalHolidayRequest } from '@/lib/types';
+import { formatDateRange } from '@/lib/date-utils';
 
 function getResendClient(): Resend | null {
   const apiKey = process.env.RESEND_API_KEY;
@@ -141,7 +142,7 @@ export async function sendNewLeaveRequestEmail(
 
   await sendEmailSafe(
     [getAdminEmail(), getApproverEmail()],
-    `New Leave Request – ${request.employeeName}`,
+    `New Leave Request – ${request.employeeName} (${formatDateRange(request.startDate, request.endDate)})`,
     baseTemplate('New Leave Request', content)
   );
 }
@@ -168,7 +169,7 @@ export async function sendLeaveApprovedEmail(
 
   await sendEmailSafe(
     [employeeEmail],
-    `Leave Approved – ${formatDate(request.startDate)}`,
+    `Leave Approved – ${formatDateRange(request.startDate, request.endDate)}`,
     baseTemplate('Leave Request Approved', content)
   );
 }
@@ -195,7 +196,7 @@ export async function sendLeaveRejectedEmail(
 
   await sendEmailSafe(
     [employeeEmail],
-    `Leave Request Rejected – ${formatDate(request.startDate)}`,
+    `Leave Request Rejected – ${formatDateRange(request.startDate, request.endDate)}`,
     baseTemplate('Leave Request Rejected', content)
   );
 }
