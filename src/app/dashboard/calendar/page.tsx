@@ -109,6 +109,7 @@ export default function CalendarPage() {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
+  const isSameDay = startDate !== '' && startDate === todayStr;
 
   // Build events map
   const eventsMap: Record<string, CalendarEvent[]> = {};
@@ -591,6 +592,11 @@ export default function CalendarPage() {
                     {leaveType === 'PAID' && balance?.cycleSlotUsed && (
                       <p className="text-red-600 font-medium mt-1">
                         ⚠ Paid leave already used this cycle (only 1 per cycle allowed)
+                      </p>
+                    )}
+                    {isSameDay && (
+                      <p className="text-amber-700 font-medium mt-1">
+                        ⚠ This leave starts today. It&apos;s generally best practice to request leave in advance whenever possible so your team and manager can plan around it.
                       </p>
                     )}
                   </div>

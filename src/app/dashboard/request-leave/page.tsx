@@ -103,6 +103,7 @@ export default function RequestLeavePage() {
   };
 
   const today = new Date().toISOString().split('T')[0];
+  const isSameDay = startDate !== '' && startDate === today;
 
   return (
     <div>
@@ -208,6 +209,11 @@ export default function RequestLeavePage() {
                 {leaveType === 'PAID' && balance?.cycleSlotUsed && (
                   <p className="text-xs text-red-600 mt-1">
                     ⚠ You already have a paid leave in this cycle. Only 1 paid leave per cycle (26th–25th).
+                  </p>
+                )}
+                {isSameDay && (
+                  <p className="text-xs text-amber-700 mt-1">
+                    ⚠ This leave starts today. It&apos;s generally best practice to request leave in advance whenever possible so your team and manager can plan around it.
                   </p>
                 )}
               </div>
